@@ -20,6 +20,7 @@ namespace MySQL_To_CSharp
         public string Password { get; set; }
         public string Database { get; set; }
         public string Table { get; set; }
+        public bool GenerateConstructorAndOutput { get; set; }
     }
 
     public class Column
@@ -40,7 +41,7 @@ namespace MySQL_To_CSharp
 
     class Program
     {
-        private static void DbToClasses(string dbName, Dictionary<string, List<Column>> db)
+        private static void DbToClasses(string dbName, Dictionary<string, List<Column>> db, bool generateConstructorAndOutput)
         {
             if (!Directory.Exists(dbName))
                 Directory.CreateDirectory(dbName);
@@ -50,10 +51,26 @@ namespace MySQL_To_CSharp
             {
                 sb.AppendLine($"public class {table.Key}");
                 sb.AppendLine("{");
+
+                // properties
+                foreach (var column in table.Value)
+                    sb.AppendLine(column.ToString());
+
+                // constructor
+                sb.AppendLine($"{Environment.NewLine}public {table.Key}(MySqlDataReader reader)");
+                sb.AppendLine("{");
                 foreach (var column in table.Value)
                 {
-                    sb.AppendLine(column.ToString());
+                    // check which type and use correct get method instead of casting
+                    if (column.Type != typeof(string))
+                        sb.AppendLine($"{column.Name} = Convert.To{column.Type.Name}(reader[\"{column.Name}\"].ToString());");
+                    else
+                        sb.AppendLine($"{column.Name} = reader[\"{column.Name}\"].ToString();");
                 }
+                   
+                sb.AppendLine("}");
+
+                // class closing
                 sb.AppendLine("}");
 
                 var sw = new StreamWriter($"{dbName}/{table.Key}.cs", false);
@@ -72,10 +89,12 @@ namespace MySQL_To_CSharp
             parser.Setup(arg => arg.Password).As('p', "password").SetDefault(String.Empty).WithDescription("(optional) Password, will use empty password if not specified");
             parser.Setup(arg => arg.Database).As('d', "database").Required().WithDescription("Database name");
             parser.Setup(arg => arg.Table).As('t', "table").SetDefault(String.Empty).WithDescription("(optional) Table name, will generate entire database if not specified");
+            parser.Setup(arg => arg.GenerateConstructorAndOutput).As('g', "generateconstructorandoutput")
+                .SetDefault(false).WithDescription("(optional) Generate a reading constructor and SQL statement output - Activate with -g true");
             parser.SetupHelp("?", "help").Callback(text => Console.WriteLine(text));
 
             #if DEBUG
-            args = new [] { "-p", "123", "-d", "az_world"};
+            args = new [] { "-p", "123", "-d", "az_world", "-g", "true"};
             #endif
 
             var result = parser.Parse(args);
@@ -132,9 +151,9 @@ namespace MySQL_To_CSharp
                     con.Close();
                 }
 
-                DbToClasses(conf.Database, database);
+                DbToClasses(conf.Database, database, conf.GenerateConstructorAndOutput);
+                Console.WriteLine("Successfully generated C# classes!");
             }
-            Console.WriteLine("Successfully generated C# classes!");
             Console.ReadLine();
         }
     }
