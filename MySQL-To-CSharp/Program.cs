@@ -56,19 +56,46 @@ namespace MySQL_To_CSharp
                 foreach (var column in table.Value)
                     sb.AppendLine(column.ToString());
 
-                // constructor
-                sb.AppendLine($"{Environment.NewLine}public {table.Key}(MySqlDataReader reader)");
-                sb.AppendLine("{");
-                foreach (var column in table.Value)
+                if (generateConstructorAndOutput)
                 {
-                    // check which type and use correct get method instead of casting
-                    if (column.Type != typeof(string))
-                        sb.AppendLine($"{column.Name} = Convert.To{column.Type.Name}(reader[\"{column.Name}\"].ToString());");
-                    else
-                        sb.AppendLine($"{column.Name} = reader[\"{column.Name}\"].ToString();");
+                    // constructor
+                    sb.AppendLine($"{Environment.NewLine}public {table.Key}(MySqlDataReader reader)");
+                    sb.AppendLine("{");
+                    foreach (var column in table.Value)
+                    {
+                        // check which type and use correct get method instead of casting
+                        if (column.Type != typeof(string))
+                            sb.AppendLine($"{column.Name} = Convert.To{column.Type.Name}(reader[\"{column.Name}\"].ToString());");
+                        else
+                            sb.AppendLine($"{column.Name} = reader[\"{column.Name}\"].ToString();");
+                    }
+                    sb.AppendLine($"}}{Environment.NewLine}");
+
+                    // update query
+                    sb.AppendLine($"public string UpdateQuery()");
+                    sb.AppendLine("{");
+                    sb.Append($"return $\"UPDATE {table.Key} SET");
+                    foreach (var column in table.Value)
+                        sb.Append($" {column.Name} = {{{column.Name}}},");
+                    sb.Remove(sb.ToString().LastIndexOf(','), 1);
+                    sb.AppendLine($" WHERE {table.Value[0].Name} = {{{table.Value[0].Name}}};\"");
+                    sb.AppendLine($"}}{Environment.NewLine}");
+
+                    // insert query
+                    sb.AppendLine($"public string InsertQuery()");
+                    sb.AppendLine("{");
+                    sb.Append($"return $\"INSERT INTO {table.Key} VALUES (");
+                    foreach (var column in table.Value)
+                        sb.Append($" {{{column.Name}}},");
+                    sb.Remove(sb.ToString().LastIndexOf(','), 1);
+                    sb.AppendLine($");\";{Environment.NewLine}}}{Environment.NewLine}");
+
+                    // delete query
+                    sb.AppendLine($"public string DeleteQuery()");
+                    sb.AppendLine("{");
+                    sb.AppendLine($"return $\"DELETE FROM {table.Key} WHERE {table.Value[0].Name} = {{{table.Value[0].Name}}};\";");
+                    sb.AppendLine("}");
                 }
-                   
-                sb.AppendLine("}");
 
                 // class closing
                 sb.AppendLine("}");
