@@ -120,10 +120,6 @@ namespace MySQL_To_CSharp
                 .SetDefault(false).WithDescription("(optional) Generate a reading constructor and SQL statement output - Activate with -g true");
             parser.SetupHelp("?", "help").Callback(text => Console.WriteLine(text));
 
-            #if DEBUG
-            args = new [] { "-p", "123", "-d", "az_world", "-g", "true"};
-            #endif
-
             var result = parser.Parse(args);
             if (!result.HasErrors)
             {
