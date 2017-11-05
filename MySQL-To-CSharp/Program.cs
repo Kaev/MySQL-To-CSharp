@@ -35,7 +35,15 @@ namespace MySQL_To_CSharp
 
         public override string ToString()
         {
-            return $"public {this.Type.Name} {this.Name} {{ get; set; }}";
+            return $"public {this.Type.Name} {this.Name.FirstCharUpper()} {{ get; set; }}";
+        }
+    }
+
+    public static class StringExtension
+    {
+        public static string FirstCharUpper(this string str)
+        {
+            return str.First().ToString().ToUpper() + str.Substring(1);
         }
     }
 
@@ -65,9 +73,9 @@ namespace MySQL_To_CSharp
                     {
                         // check which type and use correct get method instead of casting
                         if (column.Type != typeof(string))
-                            sb.AppendLine($"{column.Name} = Convert.To{column.Type.Name}(reader[\"{column.Name}\"].ToString());");
+                            sb.AppendLine($"{column.Name.FirstCharUpper()} = Convert.To{column.Type.Name}(reader[\"{column.Name}\"].ToString());");
                         else
-                            sb.AppendLine($"{column.Name} = reader[\"{column.Name}\"].ToString();");
+                            sb.AppendLine($"{column.Name.FirstCharUpper()} = reader[\"{column.Name}\"].ToString();");
                     }
                     sb.AppendLine($"}}{Environment.NewLine}");
 
@@ -76,9 +84,9 @@ namespace MySQL_To_CSharp
                     sb.AppendLine("{");
                     sb.Append($"return $\"UPDATE {table.Key} SET");
                     foreach (var column in table.Value)
-                        sb.Append($" {column.Name} = {{{column.Name}}},");
+                        sb.Append($" {column.Name} = {{{column.Name.FirstCharUpper()}}},");
                     sb.Remove(sb.ToString().LastIndexOf(','), 1);
-                    sb.AppendLine($" WHERE {table.Value[0].Name} = {{{table.Value[0].Name}}};\";");
+                    sb.AppendLine($" WHERE {table.Value[0].Name} = {{{table.Value[0].Name.FirstCharUpper()}}};\";");
                     sb.AppendLine($"}}{Environment.NewLine}");
 
                     // insert query
@@ -86,14 +94,14 @@ namespace MySQL_To_CSharp
                     sb.AppendLine("{");
                     sb.Append($"return $\"INSERT INTO {table.Key} VALUES (");
                     foreach (var column in table.Value)
-                        sb.Append($" {{{column.Name}}},");
+                        sb.Append($" {{{column.Name.FirstCharUpper()}}},");
                     sb.Remove(sb.ToString().LastIndexOf(','), 1);
                     sb.AppendLine($");\";{Environment.NewLine}}}{Environment.NewLine}");
 
                     // delete query
                     sb.AppendLine($"public string DeleteQuery()");
                     sb.AppendLine("{");
-                    sb.AppendLine($"return $\"DELETE FROM {table.Key} WHERE {table.Value[0].Name} = {{{table.Value[0].Name}}};\";");
+                    sb.AppendLine($"return $\"DELETE FROM {table.Key} WHERE {table.Value[0].Name} = {{{table.Value[0].Name.FirstCharUpper()}}};\";");
                     sb.AppendLine("}");
                 }
 
