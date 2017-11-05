@@ -78,7 +78,7 @@ namespace MySQL_To_CSharp
                     foreach (var column in table.Value)
                         sb.Append($" {column.Name} = {{{column.Name}}},");
                     sb.Remove(sb.ToString().LastIndexOf(','), 1);
-                    sb.AppendLine($" WHERE {table.Value[0].Name} = {{{table.Value[0].Name}}};\"");
+                    sb.AppendLine($" WHERE {table.Value[0].Name} = {{{table.Value[0].Name}}};\";");
                     sb.AppendLine($"}}{Environment.NewLine}");
 
                     // insert query
@@ -119,6 +119,10 @@ namespace MySQL_To_CSharp
             parser.Setup(arg => arg.GenerateConstructorAndOutput).As('g', "generateconstructorandoutput")
                 .SetDefault(false).WithDescription("(optional) Generate a reading constructor and SQL statement output - Activate with -g true");
             parser.SetupHelp("?", "help").Callback(text => Console.WriteLine(text));
+
+            #if DEBUG
+            args = new [] { "-p", "123", "-d", "az_world", "-g", "true"};
+            #endif
 
             var result = parser.Parse(args);
             if (!result.HasErrors)
