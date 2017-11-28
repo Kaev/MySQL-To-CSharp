@@ -21,16 +21,19 @@ namespace MySQL_To_CSharp
         public string Database { get; set; }
         public string Table { get; set; }
         public bool GenerateConstructorAndOutput { get; set; }
+        public bool GenerateMarkupPages { get; set; }
     }
 
     public class Column
     {
         public string Name { get; set; }
         public Type Type { get; set; }
+        public string ColumnType { get; set; }
 
         public Column(MySqlDataReader reader)
         {
             this.Name = reader.GetString(1);
+            this.ColumnType = reader.GetString(2);
         }
 
         public override string ToString()
@@ -115,6 +118,41 @@ namespace MySQL_To_CSharp
             }
         }
 
+        private static void DbToMarkupPage(string dbName, Dictionary<string, List<Column>> db)
+        {
+            var wikiDir = $"{dbName}-wiki";
+            var wikiTableDir = $"{wikiDir}/tables";
+
+            if (!Directory.Exists(wikiDir))
+                Directory.CreateDirectory(wikiDir);
+            if (!Directory.Exists(wikiTableDir))
+                Directory.CreateDirectory(wikiTableDir);
+
+            var sb = new StringBuilder();
+            // generate index pages
+            foreach (var table in db)
+                sb.AppendLine($"* [[{table.Key.FirstCharUpper()}|{table.Key.ToLower()}]]");
+
+            var sw = new StreamWriter($"{wikiDir}/{dbName}.txt");
+            sw.Write(sb.ToString());
+            sw.Close();
+            sb.Clear();
+
+            sb.AppendLine("Column | Type | Description");
+            sb.AppendLine("--- | --- | ---");
+
+            foreach (var table in db)
+            {
+                foreach (var column in table.Value)
+                    sb.AppendLine($"{column.Name.FirstCharUpper()} | {column.ColumnType} | ");
+                sw = new StreamWriter($"{wikiTableDir}/{table.Key}.txt");
+                sw.Write(sb.ToString());
+                sw.Close();
+                sb.Clear();
+            }
+
+        }
+
         static void Main(string[] args)
         {
             var parser = new FluentCommandLineParser<ApplicationArguments>();
@@ -126,6 +164,9 @@ namespace MySQL_To_CSharp
             parser.Setup(arg => arg.Table).As('t', "table").SetDefault(String.Empty).WithDescription("(optional) Table name, will generate entire database if not specified");
             parser.Setup(arg => arg.GenerateConstructorAndOutput).As('g', "generateconstructorandoutput")
                 .SetDefault(false).WithDescription("(optional) Generate a reading constructor and SQL statement output - Activate with -g true");
+            parser.Setup(arg => arg.GenerateMarkupPages).As('m', "generatemarkuppages")
+                .SetDefault(false)
+                .WithDescription("(optional) Generate markup pages for database and tables which can be used in wikis");
             parser.SetupHelp("?", "help").Callback(text => Console.WriteLine(text));
 
             var result = parser.Parse(args);
@@ -151,7 +192,7 @@ namespace MySQL_To_CSharp
                     using (var cmd = con.CreateCommand())
                     {
                         cmd.CommandText =
-                            $"SELECT TABLE_NAME, COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '{conf.Database}'";
+                            $"SELECT TABLE_NAME, COLUMN_NAME, COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '{conf.Database}'";
                         if (!conf.Table.Equals(string.Empty))
                             cmd.CommandText += $" AND TABLE_NAME = '{conf.Table}'";
 
@@ -183,6 +224,8 @@ namespace MySQL_To_CSharp
                 }
 
                 DbToClasses(conf.Database, database, conf.GenerateConstructorAndOutput);
+                if (conf.GenerateMarkupPages)
+                    DbToMarkupPage(conf.Database, database);
                 Console.WriteLine("Successfully generated C# classes!");
             }
             Console.ReadLine();
