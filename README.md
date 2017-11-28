@@ -14,3 +14,4 @@ Parameter | Default value | Description
 -t | | (optional) Table name, will generate entire database if not specified
 -g | | (optional) Generate a reading constructor and SQL statement output - Activate with -g true
 -m | | (optional) Generate markup pages for database and tables which can be used in wikis - Activate with -m true
+-r | | (optional) Will use this instead of database name for wiki breadcrump generation
