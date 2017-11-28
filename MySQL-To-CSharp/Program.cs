@@ -22,6 +22,7 @@ namespace MySQL_To_CSharp
         public string Table { get; set; }
         public bool GenerateConstructorAndOutput { get; set; }
         public bool GenerateMarkupPages { get; set; }
+        public string MarkupDatabaseNameReplacement { get; set; }
     }
 
     public class Column
@@ -120,8 +121,9 @@ namespace MySQL_To_CSharp
 
         private static void DbToMarkupPage(string dbName, Dictionary<string, List<Column>> db)
         {
-            var wikiDir = $"{dbName}-wiki";
-            var wikiTableDir = $"{wikiDir}/tables";
+            var wikiDir = $"wiki";
+            var wikiDbDir = $"{wikiDir}/{dbName}";
+            var wikiTableDir = $"{wikiDbDir}/tables";
 
             if (!Directory.Exists(wikiDir))
                 Directory.CreateDirectory(wikiDir);
@@ -129,20 +131,32 @@ namespace MySQL_To_CSharp
                 Directory.CreateDirectory(wikiTableDir);
 
             var sb = new StringBuilder();
-            // generate index pages
-            foreach (var table in db)
-                sb.AppendLine($"* [[{table.Key.FirstCharUpper()}|{table.Key.ToLower()}]]");
 
-            var sw = new StreamWriter($"{wikiDir}/{dbName}.txt");
+            sb.AppendLine($"* [[{dbName}|{dbName}]]");
+
+            var sw = new StreamWriter($"{wikiDir}/index.txt", true);
             sw.Write(sb.ToString());
             sw.Close();
             sb.Clear();
 
-            sb.AppendLine("Column | Type | Description");
-            sb.AppendLine("--- | --- | ---");
+            sb.AppendLine($"[[Database Structure|Database Structure]] > [[{dbName}|{dbName}]]");
+
+            // generate index pages
+            foreach (var table in db)
+                sb.AppendLine($"* [[{table.Key.FirstCharUpper()}|{table.Key.ToLower()}]]");
+
+            sw = new StreamWriter($"{wikiDbDir}/{dbName}.txt");
+            sw.Write(sb.ToString());
+            sw.Close();
+            sb.Clear();
 
             foreach (var table in db)
             {
+                sb.AppendLine($"[[Database Structure|Database Structure]] > [[{dbName}|{dbName}]] > [[{table.Key}|{table.Key}]]");
+                sb.AppendLine("");
+                sb.AppendLine("Column | Type | Description");
+                sb.AppendLine("--- | --- | ---");
+
                 foreach (var column in table.Value)
                     sb.AppendLine($"{column.Name.FirstCharUpper()} | {column.ColumnType} | ");
                 sw = new StreamWriter($"{wikiTableDir}/{table.Key}.txt");
@@ -167,6 +181,8 @@ namespace MySQL_To_CSharp
             parser.Setup(arg => arg.GenerateMarkupPages).As('m', "generatemarkuppages")
                 .SetDefault(false)
                 .WithDescription("(optional) Generate markup pages for database and tables which can be used in wikis - Activate with -m true");
+            parser.Setup(arg => arg.MarkupDatabaseNameReplacement).As('r', "markupdatabasenamereplacement")
+                .SetDefault("").WithDescription("(optional) Will use this instead of database name for wiki breadcrump generation");
             parser.SetupHelp("?", "help").Callback(text => Console.WriteLine(text));
 
             var result = parser.Parse(args);
@@ -225,7 +241,7 @@ namespace MySQL_To_CSharp
 
                 DbToClasses(conf.Database, database, conf.GenerateConstructorAndOutput);
                 if (conf.GenerateMarkupPages)
-                    DbToMarkupPage(conf.Database, database);
+                    DbToMarkupPage(String.IsNullOrEmpty(conf.MarkupDatabaseNameReplacement) ? conf.Database : conf.MarkupDatabaseNameReplacement, database);
                 Console.WriteLine("Successfully generated C# classes!");
             }
             Console.ReadLine();
