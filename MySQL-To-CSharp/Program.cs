@@ -166,7 +166,7 @@ namespace MySQL_To_CSharp
                 .SetDefault(false).WithDescription("(optional) Generate a reading constructor and SQL statement output - Activate with -g true");
             parser.Setup(arg => arg.GenerateMarkupPages).As('m', "generatemarkuppages")
                 .SetDefault(false)
-                .WithDescription("(optional) Generate markup pages for database and tables which can be used in wikis");
+                .WithDescription("(optional) Generate markup pages for database and tables which can be used in wikis - Activate with -m true");
             parser.SetupHelp("?", "help").Callback(text => Console.WriteLine(text));
 
             var result = parser.Parse(args);
