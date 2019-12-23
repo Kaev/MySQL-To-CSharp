@@ -86,7 +86,7 @@ namespace MySQL_To_CSharp
                     // update query
                     sb.AppendLine($"public string UpdateQuery()");
                     sb.AppendLine("{");
-                    sb.Append($"return $\"UPDATE {table.Key} SET");
+                    sb.Append($"return $\"UPDATE `{table.Key}` SET");
                     foreach (var column in table.Value)
                         sb.Append($" {column.Name} = {{{column.Name.FirstCharUpper()}}},");
                     sb.Remove(sb.ToString().LastIndexOf(','), 1);
@@ -96,7 +96,7 @@ namespace MySQL_To_CSharp
                     // insert query
                     sb.AppendLine($"public string InsertQuery()");
                     sb.AppendLine("{");
-                    sb.Append($"return $\"INSERT INTO {table.Key} VALUES (");
+                    sb.Append($"return $\"INSERT INTO `{table.Key}` VALUES (");
                     foreach (var column in table.Value)
                         sb.Append($" {{{column.Name.FirstCharUpper()}}},");
                     sb.Remove(sb.ToString().LastIndexOf(','), 1);
@@ -105,7 +105,7 @@ namespace MySQL_To_CSharp
                     // delete query
                     sb.AppendLine($"public string DeleteQuery()");
                     sb.AppendLine("{");
-                    sb.AppendLine($"return $\"DELETE FROM {table.Key} WHERE {table.Value[0].Name} = {{{table.Value[0].Name.FirstCharUpper()}}};\";");
+                    sb.AppendLine($"return $\"DELETE FROM `{table.Key}` WHERE {table.Value[0].Name} = {{{table.Value[0].Name.FirstCharUpper()}}};\";");
                     sb.AppendLine("}");
                 }
 
@@ -228,7 +228,7 @@ namespace MySQL_To_CSharp
                         using (var cmd = con.CreateCommand())
                         {
                             // lul - is there a way to do this without this senseless statement?
-                            cmd.CommandText = $"SELECT * FROM {table.Key} LIMIT 0";
+                            cmd.CommandText = $"SELECT * FROM `{table.Key}` LIMIT 0";
                             var reader = cmd.ExecuteReader();
                             var schema = reader.GetSchemaTable();
                             foreach (var column in table.Value)
