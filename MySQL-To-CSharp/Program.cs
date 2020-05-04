@@ -221,6 +221,8 @@ namespace MySQL_To_CSharp
                                 database[reader.GetString(0)].Add(new Column(reader));
                             else
                                 database.Add(reader.GetString(0), new List<Column>() { new Column(reader) });
+
+                        reader.Close();
                     }
 
                     foreach (var table in database)
@@ -233,6 +235,8 @@ namespace MySQL_To_CSharp
                             var schema = reader.GetSchemaTable();
                             foreach (var column in table.Value)
                                 column.Type = schema.Select($"ColumnName = '{column.Name}'")[0]["DataType"] as Type;
+
+                            reader.Close();
                         }
                     }
 
