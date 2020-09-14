@@ -1,172 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Data;
 using System.IO;
-using System.Linq;
-using System.Linq.Expressions;
 using System.Text;
-using System.Threading.Tasks;
 using Fclp;
 using MySql.Data.MySqlClient;
 
 namespace MySQL_To_CSharp
 {
-
-    public class ApplicationArguments
-    {
-        public string IP { get; set; }
-        public int Port { get; set; }
-        public string User { get; set; }
-        public string Password { get; set; }
-        public string Database { get; set; }
-        public string Table { get; set; }
-        public bool GenerateConstructorAndOutput { get; set; }
-        public bool GenerateMarkupPages { get; set; }
-        public string MarkupDatabaseNameReplacement { get; set; }
-    }
-
-    public class Column
-    {
-        public string Name { get; set; }
-        public Type Type { get; set; }
-        public string ColumnType { get; set; }
-
-        public Column(MySqlDataReader reader)
-        {
-            this.Name = reader.GetString(1);
-            this.ColumnType = reader.GetString(2);
-        }
-
-        public override string ToString()
-        {
-            return $"public {this.Type.Name} {this.Name.FirstCharUpper()} {{ get; set; }}";
-        }
-    }
-
-    public static class StringExtension
-    {
-        public static string FirstCharUpper(this string str)
-        {
-            return str.First().ToString().ToUpper() + str.Substring(1);
-        }
-    }
-
     class Program
     {
-        private static void DbToClasses(string dbName, Dictionary<string, List<Column>> db, bool generateConstructorAndOutput)
-        {
-            if (!Directory.Exists(dbName))
-                Directory.CreateDirectory(dbName);
-
-            var sb = new StringBuilder();
-            foreach (var table in db)
-            {
-                sb.AppendLine($"public class {table.Key}");
-                sb.AppendLine("{");
-
-                // properties
-                foreach (var column in table.Value)
-                    sb.AppendLine(column.ToString());
-
-                if (generateConstructorAndOutput)
-                {
-                    // constructor
-                    sb.AppendLine($"{Environment.NewLine}public {table.Key}(MySqlDataReader reader)");
-                    sb.AppendLine("{");
-                    foreach (var column in table.Value)
-                    {
-                        // check which type and use correct get method instead of casting
-                        if (column.Type != typeof(string))
-                            sb.AppendLine($"{column.Name.FirstCharUpper()} = Convert.To{column.Type.Name}(reader[\"{column.Name}\"].ToString());");
-                        else
-                            sb.AppendLine($"{column.Name.FirstCharUpper()} = reader[\"{column.Name}\"].ToString();");
-                    }
-                    sb.AppendLine($"}}{Environment.NewLine}");
-
-                    // update query
-                    sb.AppendLine($"public string UpdateQuery()");
-                    sb.AppendLine("{");
-                    sb.Append($"return $\"UPDATE `{table.Key}` SET");
-                    foreach (var column in table.Value)
-                        sb.Append($" {column.Name} = {{{column.Name.FirstCharUpper()}}},");
-                    sb.Remove(sb.ToString().LastIndexOf(','), 1);
-                    sb.AppendLine($" WHERE {table.Value[0].Name} = {{{table.Value[0].Name.FirstCharUpper()}}};\";");
-                    sb.AppendLine($"}}{Environment.NewLine}");
-
-                    // insert query
-                    sb.AppendLine($"public string InsertQuery()");
-                    sb.AppendLine("{");
-                    sb.Append($"return $\"INSERT INTO `{table.Key}` VALUES (");
-                    foreach (var column in table.Value)
-                        sb.Append($" {{{column.Name.FirstCharUpper()}}},");
-                    sb.Remove(sb.ToString().LastIndexOf(','), 1);
-                    sb.AppendLine($");\";{Environment.NewLine}}}{Environment.NewLine}");
-
-                    // delete query
-                    sb.AppendLine($"public string DeleteQuery()");
-                    sb.AppendLine("{");
-                    sb.AppendLine($"return $\"DELETE FROM `{table.Key}` WHERE {table.Value[0].Name} = {{{table.Value[0].Name.FirstCharUpper()}}};\";");
-                    sb.AppendLine("}");
-                }
-
-                // class closing
-                sb.AppendLine("}");
-
-                var sw = new StreamWriter($"{dbName}/{table.Key}.cs", false);
-                sw.Write(sb.ToString());
-                sw.Close();
-                sb.Clear();
-            }
-        }
-
-        private static void DbToMarkupPage(string dbName, Dictionary<string, List<Column>> db)
-        {
-            var wikiDir = $"wiki";
-            var wikiDbDir = $"{wikiDir}/{dbName}";
-            var wikiTableDir = $"{wikiDbDir}/tables";
-
-            if (!Directory.Exists(wikiDir))
-                Directory.CreateDirectory(wikiDir);
-            if (!Directory.Exists(wikiTableDir))
-                Directory.CreateDirectory(wikiTableDir);
-
-            var sb = new StringBuilder();
-
-            sb.AppendLine($"* [[{dbName}|{dbName}]]");
-
-            var sw = new StreamWriter($"{wikiDir}/index.txt", true);
-            sw.Write(sb.ToString());
-            sw.Close();
-            sb.Clear();
-
-            sb.AppendLine($"[[Database Structure|Database Structure]] > [[{dbName}|{dbName}]]");
-
-            // generate index pages
-            foreach (var table in db)
-                sb.AppendLine($"* [[{table.Key.FirstCharUpper()}|{table.Key.ToLower()}]]");
-
-            sw = new StreamWriter($"{wikiDbDir}/{dbName}.txt");
-            sw.Write(sb.ToString());
-            sw.Close();
-            sb.Clear();
-
-            foreach (var table in db)
-            {
-                sb.AppendLine($"[[Database Structure|Database Structure]] > [[{dbName}|{dbName}]] > [[{table.Key}|{table.Key}]]");
-                sb.AppendLine("");
-                sb.AppendLine("Column | Type | Description");
-                sb.AppendLine("--- | --- | ---");
-
-                foreach (var column in table.Value)
-                    sb.AppendLine($"{column.Name.FirstCharUpper()} | {column.ColumnType} | ");
-                sw = new StreamWriter($"{wikiTableDir}/{table.Key}.txt");
-                sw.Write(sb.ToString());
-                sw.Close();
-                sb.Clear();
-            }
-
-        }
-
         static void Main(string[] args)
         {
             var parser = new FluentCommandLineParser<ApplicationArguments>();
@@ -227,7 +69,7 @@ namespace MySQL_To_CSharp
                     {
                         using (var cmd = con.CreateCommand())
                         {
-                            // lul - is there a way to do this without this senseless statement?
+                            // TODO: Is there a way to do this without this senseless statement?
                             cmd.CommandText = $"SELECT * FROM `{table.Key}` LIMIT 0";
                             var reader = cmd.ExecuteReader();
                             var schema = reader.GetSchemaTable();
@@ -241,10 +83,123 @@ namespace MySQL_To_CSharp
 
                 DbToClasses(conf.Database, database, conf.GenerateConstructorAndOutput);
                 if (conf.GenerateMarkupPages)
-                    DbToMarkupPage(String.IsNullOrEmpty(conf.MarkupDatabaseNameReplacement) ? conf.Database : conf.MarkupDatabaseNameReplacement, database);
+                    DbToMarkupPage(string.IsNullOrEmpty(conf.MarkupDatabaseNameReplacement) ? conf.Database : conf.MarkupDatabaseNameReplacement, database);
                 Console.WriteLine("Successfully generated C# classes!");
             }
             Console.ReadLine();
+        }
+
+        private static void DbToClasses(string dbName, Dictionary<string, List<Column>> db, bool generateConstructorAndOutput)
+        {
+            if (!Directory.Exists(dbName))
+                Directory.CreateDirectory(dbName);
+
+            var sb = new StringBuilder();
+            foreach (var table in db)
+            {
+                sb.AppendLine($"public class {table.Key}");
+                sb.AppendLine("{");
+
+                // properties
+                foreach (var column in table.Value)
+                    sb.AppendLine(column.ToString());
+
+                if (generateConstructorAndOutput)
+                {
+                    // constructor
+                    sb.AppendLine($"{Environment.NewLine}public {table.Key}(MySqlDataReader reader)");
+                    sb.AppendLine("{");
+                    foreach (var column in table.Value)
+                    {
+                        // check which type and use correct get method instead of casting
+                        if (column.Type != typeof(string))
+                            sb.AppendLine($"{column.Name.FirstCharUpper()} = Convert.To{column.Type.Name}(reader[\"{column.Name}\"].ToString());");
+                        else
+                            sb.AppendLine($"{column.Name.FirstCharUpper()} = reader[\"{column.Name}\"].ToString();");
+                    }
+                    sb.AppendLine($"}}{Environment.NewLine}");
+
+                    // update query
+                    sb.AppendLine("public string UpdateQuery()");
+                    sb.AppendLine("{");
+                    sb.Append($"return $\"UPDATE `{table.Key}` SET");
+                    foreach (var column in table.Value)
+                        sb.Append($" {column.Name} = {{{column.Name.FirstCharUpper()}}},");
+                    sb.Remove(sb.ToString().LastIndexOf(','), 1);
+                    sb.AppendLine($" WHERE {table.Value[0].Name} = {{{table.Value[0].Name.FirstCharUpper()}}};\";");
+                    sb.AppendLine($"}}{Environment.NewLine}");
+
+                    // insert query
+                    sb.AppendLine("public string InsertQuery()");
+                    sb.AppendLine("{");
+                    sb.Append($"return $\"INSERT INTO `{table.Key}` VALUES (");
+                    foreach (var column in table.Value)
+                        sb.Append($" {{{column.Name.FirstCharUpper()}}},");
+                    sb.Remove(sb.ToString().LastIndexOf(','), 1);
+                    sb.AppendLine($");\";{Environment.NewLine}}}{Environment.NewLine}");
+
+                    // delete query
+                    sb.AppendLine("public string DeleteQuery()");
+                    sb.AppendLine("{");
+                    sb.AppendLine($"return $\"DELETE FROM `{table.Key}` WHERE {table.Value[0].Name} = {{{table.Value[0].Name.FirstCharUpper()}}};\";");
+                    sb.AppendLine("}");
+                }
+
+                // class closing
+                sb.AppendLine("}");
+
+                var sw = new StreamWriter($"{dbName}/{table.Key}.cs", false);
+                sw.Write(sb.ToString());
+                sw.Close();
+                sb.Clear();
+            }
+        }
+
+        private static void DbToMarkupPage(string dbName, Dictionary<string, List<Column>> db)
+        {
+            var wikiDir = $"wiki";
+            var wikiDbDir = $"{wikiDir}/{dbName}";
+            var wikiTableDir = $"{wikiDbDir}/tables";
+
+            if (!Directory.Exists(wikiDir))
+                Directory.CreateDirectory(wikiDir);
+            if (!Directory.Exists(wikiTableDir))
+                Directory.CreateDirectory(wikiTableDir);
+
+            var sb = new StringBuilder();
+
+            sb.AppendLine($"* [[{dbName}|{dbName}]]");
+
+            var sw = new StreamWriter($"{wikiDir}/index.txt", true);
+            sw.Write(sb.ToString());
+            sw.Close();
+            sb.Clear();
+
+            sb.AppendLine($"[[Database Structure|Database Structure]] > [[{dbName}|{dbName}]]");
+
+            // generate index pages
+            foreach (var table in db)
+                sb.AppendLine($"* [[{table.Key.FirstCharUpper()}|{table.Key.ToLower()}]]");
+
+            sw = new StreamWriter($"{wikiDbDir}/{dbName}.txt");
+            sw.Write(sb.ToString());
+            sw.Close();
+            sb.Clear();
+
+            foreach (var table in db)
+            {
+                sb.AppendLine($"[[Database Structure|Database Structure]] > [[{dbName}|{dbName}]] > [[{table.Key}|{table.Key}]]");
+                sb.AppendLine("");
+                sb.AppendLine("Column | Type | Description");
+                sb.AppendLine("--- | --- | ---");
+
+                foreach (var column in table.Value)
+                    sb.AppendLine($"{column.Name.FirstCharUpper()} | {column.ColumnType} | ");
+                sw = new StreamWriter($"{wikiTableDir}/{table.Key}.txt");
+                sw.Write(sb.ToString());
+                sw.Close();
+                sb.Clear();
+            }
         }
     }
 }
