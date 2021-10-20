@@ -54,15 +54,17 @@ namespace MySQL_To_CSharp
                         if (!conf.Table.Equals(string.Empty))
                             cmd.CommandText += $" AND TABLE_NAME = '{conf.Table}'";
 
-                        var reader = cmd.ExecuteReader();
-                        if (!reader.HasRows)
-                            return;
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            if (!reader.HasRows)
+                                return;
 
-                        while (reader.Read())
-                            if (database.ContainsKey(reader.GetString(0)))
-                                database[reader.GetString(0)].Add(new Column(reader));
-                            else
-                                database.Add(reader.GetString(0), new List<Column>() { new Column(reader) });
+                            while (reader.Read())
+                                if (database.ContainsKey(reader.GetString(0)))
+                                    database[reader.GetString(0)].Add(new Column(reader));
+                                else
+                                    database.Add(reader.GetString(0), new List<Column>() { new Column(reader) });
+                        }
                     }
 
                     foreach (var table in database)
@@ -71,10 +73,14 @@ namespace MySQL_To_CSharp
                         {
                             // TODO: Is there a way to do this without this senseless statement?
                             cmd.CommandText = $"SELECT * FROM `{table.Key}` LIMIT 0";
-                            var reader = cmd.ExecuteReader();
-                            var schema = reader.GetSchemaTable();
-                            foreach (var column in table.Value)
-                                column.Type = schema.Select($"ColumnName = '{column.Name}'")[0]["DataType"] as Type;
+                            using (var reader = cmd.ExecuteReader())
+                            {
+                                using (var schema = reader.GetSchemaTable())
+                                {
+                                    foreach (var column in table.Value)
+                                        column.Type = schema.Select($"ColumnName = '{column.Name}'")[0]["DataType"] as Type;
+                                }
+                            }
                         }
                     }
 
@@ -148,10 +154,12 @@ namespace MySQL_To_CSharp
                 // class closing
                 sb.AppendLine("}");
 
-                var sw = new StreamWriter($"{dbName}/{table.Key}.cs", false);
-                sw.Write(sb.ToString());
-                sw.Close();
-                sb.Clear();
+                using (var sw = new StreamWriter($"{dbName}/{table.Key}.cs", false))
+                {
+                    sw.Write(sb.ToString());
+                    sw.Close();
+                    sb.Clear();
+                }
             }
         }
 
@@ -170,10 +178,12 @@ namespace MySQL_To_CSharp
 
             sb.AppendLine($"* [[{dbName}|{dbName}]]");
 
-            var sw = new StreamWriter($"{wikiDir}/index.txt", true);
-            sw.Write(sb.ToString());
-            sw.Close();
-            sb.Clear();
+            using (var sw = new StreamWriter($"{wikiDir}/index.txt", true))
+            {
+                sw.Write(sb.ToString());
+                sw.Close();
+                sb.Clear();
+            }
 
             sb.AppendLine($"[[Database Structure|Database Structure]] > [[{dbName}|{dbName}]]");
 
@@ -181,10 +191,12 @@ namespace MySQL_To_CSharp
             foreach (var table in db)
                 sb.AppendLine($"* [[{table.Key.FirstCharUpper()}|{table.Key.ToLower()}]]");
 
-            sw = new StreamWriter($"{wikiDbDir}/{dbName}.txt");
-            sw.Write(sb.ToString());
-            sw.Close();
-            sb.Clear();
+            using (var sw = new StreamWriter($"{wikiDbDir}/{dbName}.txt"))
+            {
+                sw.Write(sb.ToString());
+                sw.Close();
+                sb.Clear();
+            }
 
             foreach (var table in db)
             {
@@ -195,10 +207,12 @@ namespace MySQL_To_CSharp
 
                 foreach (var column in table.Value)
                     sb.AppendLine($"{column.Name.FirstCharUpper()} | {column.ColumnType} | ");
-                sw = new StreamWriter($"{wikiTableDir}/{table.Key}.txt");
-                sw.Write(sb.ToString());
-                sw.Close();
-                sb.Clear();
+                using (var sw = new StreamWriter($"{wikiTableDir}/{table.Key}.txt"))
+                {
+                    sw.Write(sb.ToString());
+                    sw.Close();
+                    sb.Clear();
+                }
             }
         }
     }
