@@ -7,30 +7,39 @@ using MySql.Data.MySqlClient;
 
 namespace MySQL_To_CSharp
 {
-    class Program
+    internal class Program
     {
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
             var parser = new FluentCommandLineParser<ApplicationArguments>();
-            parser.Setup(arg => arg.IP).As('i', "ip").SetDefault("127.0.0.1").WithDescription("(optional) IP address of the MySQL server, will use 127.0.0.1 if not specified");
-            parser.Setup(arg => arg.Port).As('n', "port").SetDefault(3306).WithDescription("(optional) Port number of the MySQL server, will use 3306 if not specified");
-            parser.Setup(arg => arg.User).As('u', "user").SetDefault("root").WithDescription("(optional) Username, will use root if not specified");
-            parser.Setup(arg => arg.Password).As('p', "password").SetDefault(String.Empty).WithDescription("(optional) Password, will use empty password if not specified");
+            parser.Setup(arg => arg.IP).As('i', "ip").SetDefault("127.0.0.1")
+                .WithDescription("(optional) IP address of the MySQL server, will use 127.0.0.1 if not specified");
+            parser.Setup(arg => arg.Port).As('n', "port").SetDefault(3306)
+                .WithDescription("(optional) Port number of the MySQL server, will use 3306 if not specified");
+            parser.Setup(arg => arg.User).As('u', "user").SetDefault("root")
+                .WithDescription("(optional) Username, will use root if not specified");
+            parser.Setup(arg => arg.Password).As('p', "password").SetDefault(string.Empty)
+                .WithDescription("(optional) Password, will use empty password if not specified");
             parser.Setup(arg => arg.Database).As('d', "database").Required().WithDescription("Database name");
-            parser.Setup(arg => arg.Table).As('t', "table").SetDefault(String.Empty).WithDescription("(optional) Table name, will generate entire database if not specified");
+            parser.Setup(arg => arg.Table).As('t', "table").SetDefault(string.Empty)
+                .WithDescription("(optional) Table name, will generate entire database if not specified");
             parser.Setup(arg => arg.GenerateConstructorAndOutput).As('g', "generateconstructorandoutput")
-                .SetDefault(false).WithDescription("(optional) Generate a reading constructor and SQL statement output - Activate with -g true");
+                .SetDefault(false)
+                .WithDescription(
+                    "(optional) Generate a reading constructor and SQL statement output - Activate with -g true");
             parser.Setup(arg => arg.GenerateMarkupPages).As('m', "generatemarkuppages")
                 .SetDefault(false)
-                .WithDescription("(optional) Generate markup pages for database and tables which can be used in wikis - Activate with -m true");
+                .WithDescription(
+                    "(optional) Generate markup pages for database and tables which can be used in wikis - Activate with -m true");
             parser.Setup(arg => arg.MarkupDatabaseNameReplacement).As('r', "markupdatabasenamereplacement")
-                .SetDefault("").WithDescription("(optional) Will use this instead of database name for wiki breadcrump generation");
+                .SetDefault("")
+                .WithDescription("(optional) Will use this instead of database name for wiki breadcrump generation");
             parser.SetupHelp("?", "help").Callback(text => Console.WriteLine(text));
 
             var result = parser.Parse(args);
             if (!result.HasErrors)
             {
-                var conf = parser.Object as ApplicationArguments;
+                var conf = parser.Object;
                 if (conf.Database is null)
                 {
                     Console.WriteLine("You didn't specify a database");
@@ -62,11 +71,12 @@ namespace MySQL_To_CSharp
                             if (database.ContainsKey(reader.GetString(0)))
                                 database[reader.GetString(0)].Add(new Column(reader));
                             else
-                                database.Add(reader.GetString(0), new List<Column>() { new Column(reader) });
+                                database.Add(reader.GetString(0), new List<Column> { new Column(reader) });
+
+                        reader.Close();
                     }
 
                     foreach (var table in database)
-                    {
                         using (var cmd = con.CreateCommand())
                         {
                             // TODO: Is there a way to do this without this senseless statement?
@@ -75,21 +85,27 @@ namespace MySQL_To_CSharp
                             var schema = reader.GetSchemaTable();
                             foreach (var column in table.Value)
                                 column.Type = schema.Select($"ColumnName = '{column.Name}'")[0]["DataType"] as Type;
+
+                            reader.Close();
                         }
-                    }
 
                     con.Close();
                 }
 
                 DbToClasses(conf.Database, database, conf.GenerateConstructorAndOutput);
                 if (conf.GenerateMarkupPages)
-                    DbToMarkupPage(string.IsNullOrEmpty(conf.MarkupDatabaseNameReplacement) ? conf.Database : conf.MarkupDatabaseNameReplacement, database);
+                    DbToMarkupPage(
+                        string.IsNullOrEmpty(conf.MarkupDatabaseNameReplacement)
+                            ? conf.Database
+                            : conf.MarkupDatabaseNameReplacement, database);
                 Console.WriteLine("Successfully generated C# classes!");
             }
+
             Console.ReadLine();
         }
 
-        private static void DbToClasses(string dbName, Dictionary<string, List<Column>> db, bool generateConstructorAndOutput)
+        private static void DbToClasses(string dbName, Dictionary<string, List<Column>> db,
+            bool generateConstructorAndOutput)
         {
             if (!Directory.Exists(dbName))
                 Directory.CreateDirectory(dbName);
@@ -110,13 +126,11 @@ namespace MySQL_To_CSharp
                     sb.AppendLine($"{Environment.NewLine}public {table.Key}(MySqlDataReader reader)");
                     sb.AppendLine("{");
                     foreach (var column in table.Value)
-                    {
                         // check which type and use correct get method instead of casting
                         if (column.Type != typeof(string))
-                            sb.AppendLine($"{column.Name.FirstCharUpper()} = Convert.To{column.Type.Name}(reader[\"{column.Name}\"].ToString());");
+                            sb.AppendLine($"{column.Name.FirstCharUpper()} = reader.Get{column.Type.Name}(\"{column.Name}\");");
                         else
-                            sb.AppendLine($"{column.Name.FirstCharUpper()} = reader[\"{column.Name}\"].ToString();");
-                    }
+                            sb.AppendLine($"{column.Name.FirstCharUpper()} = reader.GetString(\"{column.Name}\");");
                     sb.AppendLine($"}}{Environment.NewLine}");
 
                     // update query
@@ -141,7 +155,8 @@ namespace MySQL_To_CSharp
                     // delete query
                     sb.AppendLine("public string DeleteQuery()");
                     sb.AppendLine("{");
-                    sb.AppendLine($"return $\"DELETE FROM `{table.Key}` WHERE {table.Value[0].Name} = {{{table.Value[0].Name.FirstCharUpper()}}};\";");
+                    sb.AppendLine(
+                        $"return $\"DELETE FROM `{table.Key}` WHERE {table.Value[0].Name} = {{{table.Value[0].Name.FirstCharUpper()}}};\";");
                     sb.AppendLine("}");
                 }
 
@@ -157,7 +172,7 @@ namespace MySQL_To_CSharp
 
         private static void DbToMarkupPage(string dbName, Dictionary<string, List<Column>> db)
         {
-            var wikiDir = $"wiki";
+            var wikiDir = "wiki";
             var wikiDbDir = $"{wikiDir}/{dbName}";
             var wikiTableDir = $"{wikiDbDir}/tables";
 
@@ -188,7 +203,8 @@ namespace MySQL_To_CSharp
 
             foreach (var table in db)
             {
-                sb.AppendLine($"[[Database Structure|Database Structure]] > [[{dbName}|{dbName}]] > [[{table.Key}|{table.Key}]]");
+                sb.AppendLine(
+                    $"[[Database Structure|Database Structure]] > [[{dbName}|{dbName}]] > [[{table.Key}|{table.Key}]]");
                 sb.AppendLine("");
                 sb.AppendLine("Column | Type | Description");
                 sb.AppendLine("--- | --- | ---");
