@@ -1,6 +1,10 @@
 # MySQL-To-CSharp
 This tool generates C# classes and markup pages for entire MySQL databases (including tables).
 
+# Hint
+This is an old project which i quickly hacked together. It works fine (it doesn't respect nullables though) but the code is very messy.
+If you're working on something similar, i'm more than happy to archive this and add a link to your project to this readme.
+
 # How to use
 Run the program with the following arguments
 
